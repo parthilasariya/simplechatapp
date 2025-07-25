@@ -1,13 +1,33 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { io } from "socket.io-client";
+
 
 export default function Home() {
-  const [messages, setMessages] = useState([
-    { text: "Welcome to the chat!", sender: "system" },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const messagesEndRef = useRef(null);
+  const socketRef = useRef(null);
+
+  useEffect(() => {
+    // Connect to Socket.IO server
+    socketRef.current = io("http://localhost:4000");
+
+    // Receive full message history
+    socketRef.current.on("history", (history) => {
+      setMessages(history);
+    });
+
+    // Receive new chat messages
+    socketRef.current.on("chat message", (msg) => {
+      setMessages((msgs) => [...msgs, { text: msg, sender: "user" }]);
+    });
+
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -16,7 +36,7 @@ export default function Home() {
   const sendMessage = (e) => {
     e.preventDefault();
     if (!input.trim()) return;
-    setMessages((msgs) => [...msgs, { text: input, sender: "user" }]);
+    socketRef.current.emit("chat message", input);
     setInput("");
   };
 
